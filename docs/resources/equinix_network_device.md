@@ -250,49 +250,108 @@ resource "equinix_network_device" "arista-ha" {
 ```
 
 ```hcl
-# Add a secondary device to an existing primary device.
-
-data "equinix_network_account" "sy" {
-    name = "account-name"
-    metro_code = "SY"
-    project_id = "92cbcfd9-347b-4da5-901d-2cea82575941"
+# Create self configured redundant BlueCat DNS and DHCP Server
+data "equinix_network_account" "sv" {
+  name       = "account-name"
+  metro_code = "SV"
 }
 
-resource "equinix_network_device" "C8KV-SV" {
-    name            = "tf-primary"
-    project_id      = "68ccfd49-39b1-478e-957a-67c72f719d7a"
-    primary_device_id = "8b028560-4a91-4b52-87ba-9fae0fcb538c"
-    metro_code      = data.equinix_network_account.sy.metro_code
-    type_code       = "C8000V"
-    self_managed    = true
-    byol            = true
-    package_code    = "network-essentials"
+resource "equinix_network_ssh_key" "test-public-key" {
+  name       = "key-name"
+  public_key = "ssh-dss key-value"
+  type       = "DSA"
+}
+
+resource "equinix_network_device" "bluecat-bdds-ha" {
+  name                 = "tf-bluecat-bdds-p"
+  metro_code           = data.equinix_network_account.sv.metro_code
+  type_code            = "BLUECAT"
+  self_managed         = true
+  connectivity         = "PRIVATE"
+  byol                 = true
+  package_code         = "STD"
+  notifications        = ["test@equinix.com"]
+  account_number       = data.equinix_network_account.sv.number
+  version              = "9.6.0"
+  core_count           = 2
+  term_length          = 12
+  vendor_configuration = {
+    "hostname" = "test"
+    "privateAddress" : "x.x.x.x"
+    "privateCidrMask" : "24"
+    "privateGateway" : "x.x.x.x"
+    "licenseKey" : "xxxxx-xxxxx-xxxxx-xxxxx-xxxxx"
+    "licenseId" : "xxxxxxxxxxxxxxx"
+  }
+  ssh_key {
+    username = "test-username"
+    key_name = equinix_network_ssh_key.test-public-key.name
+  }
+  secondary_device {
+    name                 = "tf-bluecat-bdds-s"
+    metro_code           = data.equinix_network_account.sv.metro_code
+    notifications        = ["test@eq.com"]
+    account_number       = data.equinix_network_account.sv.number
+    vendor_configuration = {
+      "hostname" = "test"
+      "privateAddress" : "x.x.x.x"
+      "privateCidrMask" : "24"
+      "privateGateway" : "x.x.x.x"
+      "licenseKey" : "xxxxx-xxxxx-xxxxx-xxxxx-xxxxx"
+      "licenseId" : "xxxxxxxxxxxxxxx"
+    }
+  }
+}
+```
+
+```hcl
+# Create self configured redundant BlueCat Edge Service Point
+data "equinix_network_account" "sv" {
+  name = "account-name"
+  metro_code = "SV"
+}
+
+resource "equinix_network_file" "bluecat-edge-service-point-cloudinit-primary-file" {
+  file_name = "TF-BLUECAT-ESP-cloud-init-file.txt"
+  content = file("${path.module}/${var.filepath}")
+  metro_code = data.equinix_network_account.sv.metro_code
+  device_type_code = "BLUECAT-EDGE-SERVICE-POINT"
+  process_type = "CLOUD_INIT"
+  self_managed = true
+  byol = true
+}
+
+resource "equinix_network_file" "bluecat-edge-service-point-cloudinit-secondary-file" {
+  file_name = "TF-BLUECAT-ESP-cloud-init-file.txt"
+  content = file("${path.module}/${var.filepath}")
+  metro_code = data.equinix_network_account.sv.metro_code
+  device_type_code = "BLUECAT-EDGE-SERVICE-POINT"
+  process_type = "CLOUD_INIT"
+  self_managed = true
+  byol = true
+}
+
+resource "equinix_network_device" "bluecat-edge-service-point-ha" {
+  name            = "tf-bluecat-edge-service-point-p"
+  metro_code      = data.equinix_network_account.sv.metro_code
+  type_code       = "BLUECAT-EDGE-SERVICE-POINT"
+  self_managed    = true
+  connectivity    = "PRIVATE"
+  byol            = true
+  package_code    = "STD"
+  notifications   = ["test@equinix.com"]
+  account_number  = data.equinix_network_account.sv.number
+  cloud_init_file_id = equinix_network_file.bluecat-edge-service-point-cloudinit-primary-file.uuid
+  version         = "4.6.3"
+  core_count      = 4
+  term_length     = 12
+  secondary_device {
+    name            = "tf-bluecat-edge-service-point-s"
+    metro_code      = data.equinix_network_account.sv.metro_code
     notifications   = ["test@eq.com"]
-    hostname        = "C8KV"
-    account_number  = data.equinix_network_account.sy.number
-    version         = "17.13.1a"
-    core_count      = 2
-    term_length     = 1
-    additional_bandwidth = 5
-    ssh_key {
-        username = "test-username"
-        key_name = "test"
-    }
-    acl_template_id = "fee5e2c0-6198-4ce6-9cbd-bbe6c1dbe138"
-    secondary_device {
-        name            = "tf-secondary"
-        metro_code      = data.equinix_network_account.sy.metro_code
-        notifications   = ["test@eq.com"]
-        hostname        = "C8KV"
-        account_number  = data.equinix_network_account.sy.number
-        vendor_configuration = {"hostNamePrefix" ="C8KV-secondary"}
-        additional_bandwidth = 5
-        ssh_key {
-            username = "test-username"
-            key_name = "test"
-        }
-        acl_template_id = "fee5e2c0-6198-4ce6-9cbd-bbe6c1dbe138"
-    }
+    account_number  = data.equinix_network_account.sv.number
+    cloud_init_file_id = equinix_network_file.bluecat-edge-service-point-cloudinit-secondary-file.uuid
+  }
 }
 ```
 
@@ -335,7 +394,7 @@ default number for a given device type will be used.
 * `wan_interafce_id` - (Optional) Specify the WAN/SSH interface id. If not specified, default
 WAN/SSH interface for a given device type will be used.
 * `vendor_configuration` - (Optional) Map of vendor specific configuration parameters for a device
- (controller1, activationKey, managementType, siteId, systemIpAddress)
+ (controller1, activationKey, managementType, siteId, systemIpAddress, private_address, private_cidr_mask, private_gateway, license_key, license_id)
 * `ssh-key` - (Optional) Definition of SSH key that will be provisioned
 on a device (max one key).  See [SSH Key](#ssh-key) below for more details.
 * `secondary_device` - (Optional) Definition of secondary device for redundant
@@ -349,8 +408,6 @@ leave it out, the device will be created under the default project id of your or
 * `diverse_device_id` - (Optional) Unique ID of an existing device.
 Use this field to let Equinix know if you want your new device to be in a different location from any existing virtual 
 device. This field is only meaningful for single devices.
-* `primary_device_id` - Unique ID of an existing primary device. This field is used when you are using Create Virtual 
-Device API to add a secondary device to an existing primary device. If not used it would create new HA/redundant devices
 
 ### Secondary Device
 
@@ -378,7 +435,7 @@ secondary device.
 device.
 * `vendor_configuration` - (Optional) Key/Value pairs of vendor specific configuration parameters
 for a secondary device. Key values are `controller1`, `activationKey`, `managementType`, `siteId`,
-`systemIpAddress`.
+`systemIpAddress`, `private_address`, `private_cidr_mask`, `private_gateway`, `license_key`, `license_id`.
 * `acl_template_id` - (Optional) Identifier of a WAN interface ACL template that will be applied
 on a secondary device.
 * `mgmt_acl_template_uuid` - (Optional) Identifier of an MGMT interface ACL template that will be
