@@ -227,7 +227,7 @@ func resourceNetworkDevice() *schema.Resource {
 		UpdateContext: resourceNetworkDeviceUpdate,
 		DeleteContext: resourceNetworkDeviceDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 		Schema: createNetworkDeviceSchema(),
 		Timeouts: &schema.ResourceTimeout{
@@ -257,10 +257,7 @@ func createNetworkDeviceSchema() map[string]*schema.Schema {
 			Type:     schema.TypeString,
 			Required: true,
 			DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
-				if old == new+"-Node0" {
-					return true
-				}
-				return false
+				return old == new+"-Node0"
 			},
 			ValidateFunc: validation.StringLenBetween(3, 50),
 			Description:  neDeviceDescriptions["Name"],
@@ -841,7 +838,7 @@ func createNetworkDeviceUserKeySchema() map[string]*schema.Schema {
 		},
 		neDeviceUserKeySchemaNames["KeyName"]: {
 			Type:         schema.TypeString,
-			Required:     true,
+			Optional:     true,
 			ValidateFunc: validation.StringIsNotEmpty,
 			Description:  neDeviceUserKeyDescriptions["KeyName"],
 		},
