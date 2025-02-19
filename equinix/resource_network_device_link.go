@@ -106,7 +106,7 @@ func resourceNetworkDeviceLink() *schema.Resource {
 		UpdateContext: resourceNetworkDeviceLinkUpdate,
 		DeleteContext: resourceNetworkDeviceLinkDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 		Schema: createNetworkDeviceLinkResourceSchema(),
 		Timeouts: &schema.ResourceTimeout{
@@ -154,7 +154,7 @@ func createNetworkDeviceLinkResourceSchema() map[string]*schema.Schema {
 			Optional:     true,
 			ForceNew:     true,
 			Default:      "PRIMARY",
-			ValidateFunc: validation.StringInSlice([]string{"PRIMARY", "SECONDARY", "HYBRID"}, false),
+			ValidateFunc: validation.StringInSlice([]string{"PRIMARY", "SECONDARY", "HYBRID"}, true),
 			Description:  networkDeviceLinkDescriptions["RedundancyType"],
 		},
 		networkDeviceLinkSchemaNames["Devices"]: {
@@ -322,7 +322,7 @@ func resourceNetworkDeviceLinkCreate(ctx context.Context, d *schema.ResourceData
 	return diags
 }
 
-func resourceNetworkDeviceLinkRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceNetworkDeviceLinkRead(_ context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(*config.Config).Ne
 	m.(*config.Config).AddModuleToNEUserAgent(&client, d)
 	var diags diag.Diagnostics
@@ -481,7 +481,7 @@ func expandNetworkDeviceLinkDevices(devices *schema.Set) []ne.DeviceLinkGroupDev
 	return transformed
 }
 
-func flattenNetworkDeviceLinkDevices(currentDevices *schema.Set, devices []ne.DeviceLinkGroupDevice) interface{} {
+func flattenNetworkDeviceLinkDevices(_ *schema.Set, devices []ne.DeviceLinkGroupDevice) interface{} {
 	transformed := make([]interface{}, 0, len(devices))
 	for i := range devices {
 		transformedDevice := map[string]interface{}{
